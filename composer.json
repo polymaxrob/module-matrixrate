@@ -1,7 +1,7 @@
 {
-    "name": "webshopapps/module-matrixrate",
+    "name": "polymax/module-matrixrate",
 
-    "description": "Magento Shipping Multiple Table Rates - MatrixRate",
+    "description": "Magento Shipping Multiple Table Rates - MatrixRate. Forked from https://github.com/webshopapps/module-matrixrate",
 
     "license": [
         "OSL-3.0",
@@ -10,20 +10,15 @@
 
     "authors": [
         {
-            "name": "ShipperHQ",
-            "email": "sales@wshipperhq.com",
-            "homepage": "http://www.Shipperhq.com"
+            "name": "Polymax",
+            "homepage": "https://www.polymax.co.uk"
         },
         {
-            "name": "Karen Baker"
+            "name": "Robert Cowe"
         }
     ],
 
     "type": "magento2-module",
-
-    "support": {
-        "documentation": "http://docs.shipperhq.com"
-    },
 
     "autoload": {
         "files": [

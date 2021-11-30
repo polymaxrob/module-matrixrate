@@ -24,7 +24,7 @@
         <column name="dest_country_id"      xsi:type="varchar"  nullable="false" length="4"               default="0"      comment="Destination coutry ISO/2 or ISO/3 code" />
         <column name="dest_region_id"       xsi:type="int"      nullable="false" padding="11"             default="0"      comment="Destination Region Id" />
         <column name="dest_city"            xsi:type="varchar"  nullable="false" length="30"              default=""       comment="Destination City" />
-        <column name="dest_zip"             xsi:type="varchar"  nullable="false" length="10"              default="*"      comment="Destination Post Code (Zip)" />
+        <column name="dest_zip"             xsi:type="varchar"  nullable="false" length="512"              default="*"      comment="Destination Post Code (Zip)" />
         <column name="dest_zip_to"          xsi:type="varchar"  nullable="false" length="10"              default="*"      comment="Destination Post Code To (Zip)" />
         <column name="condition_name"       xsi:type="varchar"  nullable="false" length="20"                               comment="Rate Condition name" />
         <column name="condition_from_value" xsi:type="decimal"  nullable="false" scale="4" precision="12" default="0.0000" comment="Rate condition from value" />

@@ -234,12 +234,8 @@ class Matrixrate extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
                     ];
                     break;
                 case 1: // country, region, no city, postcode
-<<<<<<< HEAD
-                    $zoneWhere =  "dest_country_id = :country_id AND dest_region_id = :region_id AND dest_city='*' ".$zipSearchString;
-=======
                     $zoneWhere =  "dest_country_id = :country_id AND dest_region_id = :region_id AND dest_city='*' "
                         . $zipSearchString;
->>>>>>> origin/main
                     $bind = [
                         ':country_id' => $request->getDestCountryId(),
                         ':region_id' => (int)$request->getDestRegionId(),

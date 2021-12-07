@@ -307,9 +307,13 @@ class Matrixrate extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
             $results = $adapter->fetchAll($select, $bind);
 
             if (!empty($results)) {
+
                 $this->logger->debug('SQL Results: ', $results);
                 foreach ($results as $data) {
-                    $shippingData[]=$data;
+                    $curRegex = $data->postcode_regex;
+                    if(preg_match('/' . $curRegex . '/', $postCode)) {
+                        $shippingData[] = $data;
+                    }
                 }
                 break;
             }

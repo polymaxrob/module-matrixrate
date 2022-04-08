@@ -204,121 +204,87 @@ class Matrixrate extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
     {
         $adapter = $this->getConnection();
         $shippingData=[];
-        $postcode = trim($request->getDestPostcode()); //SHQ18-1978
-        if ($zipRangeSet && is_numeric($postcode)) {
-            #  Want to search for postcodes within a range. SHQ18-98 Can't use bind. Will convert int to string
-            $zipSearchString = ' AND ' . (int)$postcode . ' BETWEEN dest_zip AND dest_zip_to ';
+        $doRegex = false;
+        $postcode = strtoupper(trim($request->getDestPostcode())); //SHQ18-1978
+        if(!empty($postcode)) {
+            preg_match('/^[A-Z]+/',$postcode,$m);
+            $area = $m[0];
+            $zipSearchString = " AND dest_zip like '%$area%'";
+            $doRegex = true;
         } else {
-            $zipSearchString = " AND :postcode LIKE dest_zip ";
+            $zipSearchString = " AND dest_zip ='*'";
         }
-
-        for ($j=0; $j<8; $j++) {
-            $select = $adapter->select()->from(
-                $this->getMainTable()
-            )->where(
-                'website_id = :website_id'
-            )->order(
-                ['dest_country_id DESC', 'dest_region_id DESC', 'dest_zip DESC', 'condition_from_value DESC']
-            );
-
-            $zoneWhere='';
-            $bind=[];
-            switch ($j) {
-                case 0: // country, region, city, postcode
-                    $zoneWhere =  "dest_country_id = :country_id AND dest_region_id = :region_id AND STRCMP(LOWER(dest_city),LOWER(:city))= 0 " . $zipSearchString;
-                    $bind = [
-                        ':country_id' => $request->getDestCountryId(),
-                        ':region_id' => (int)$request->getDestRegionId(),
-                        ':city' => $request->getDestCity(),
-                        ':postcode' => $postcode,
-                    ];
-                    break;
-                case 1: // country, region, no city, postcode
-                    $zoneWhere =  "dest_country_id = :country_id AND dest_region_id = :region_id AND dest_city='*' "
-                        . $zipSearchString;
-                    $bind = [
-                        ':country_id' => $request->getDestCountryId(),
-                        ':region_id' => (int)$request->getDestRegionId(),
-                        ':postcode' => $postcode,
-                    ];
-                    break;
-                case 2: // country, state, city, no postcode
-                    $zoneWhere = "dest_country_id = :country_id AND dest_region_id = :region_id AND STRCMP(LOWER(dest_city),LOWER(:city))= 0 AND dest_zip ='*'";
-                    $bind = [
-                        ':country_id' => $request->getDestCountryId(),
-                        ':region_id' => (int)$request->getDestRegionId(),
-                        ':city' => $request->getDestCity(),
-                    ];
-                    break;
-                case 3: //country, city, no region, no postcode
-                    $zoneWhere =  "dest_country_id = :country_id AND dest_region_id = '0' AND STRCMP(LOWER(dest_city),LOWER(:city))= 0 AND dest_zip ='*'";
-                    $bind = [
-                        ':country_id' => $request->getDestCountryId(),
-                        ':city' => $request->getDestCity(),
-                    ];
-                    break;
-                case 4: // country, postcode
-                    $zoneWhere =  "dest_country_id = :country_id AND dest_region_id = '0' AND dest_city ='*' "
-                        . $zipSearchString;
-                    $bind = [
-                        ':country_id' => $request->getDestCountryId(),
-                        ':postcode' => $postcode,
-                    ];
-                    break;
-                case 5: // country, region
-                    $zoneWhere =  "dest_country_id = :country_id AND dest_region_id = :region_id  AND dest_city ='*' AND dest_zip ='*'";
-                    $bind = [
-                        ':country_id' => $request->getDestCountryId(),
-                        ':region_id' => (int)$request->getDestRegionId(),
-                    ];
-                    break;
-                case 6: // country
-                    $zoneWhere =  "dest_country_id = :country_id AND dest_region_id = '0' AND dest_city ='*' AND dest_zip ='*'";
-                    $bind = [
-                        ':country_id' => $request->getDestCountryId(),
-                    ];
-                    break;
-                case 7: // nothing
-                    $zoneWhere =  "dest_country_id = '0' AND dest_region_id = '0' AND dest_city ='*' AND dest_zip ='*'";
-                    break;
-            }
-
-            $select->where($zoneWhere);
-
-            $bind[':website_id'] = (int)$request->getWebsiteId();
-            $bind[':condition_name'] = $request->getConditionMRName();
-
-            //SHQ18-1978
-            $condition = $request->getData($request->getConditionMRName());
-
-            if ($condition == null || $condition == "") {
-                $condition = 0;
-            }
-
-            $bind[':condition_value'] = $condition;
-
-            $select->where('condition_name = :condition_name');
-            $select->where('condition_from_value < :condition_value');
-            $select->where('condition_to_value >= :condition_value');
-
-            $this->logger->debug('SQL Select: ', $select->getPart('where'));
-            $this->logger->debug('Bindings: ', $bind);
-
-            $results = $adapter->fetchAll($select, $bind);
-
-            if (!empty($results)) {
-
-                $this->logger->debug('SQL Results: ', $results);
-                foreach ($results as $data) {
-                    $curRegex = $data->postcode_regex;
-                    if(preg_match('/' . $curRegex . '/', $postCode)) {
-                        $shippingData[] = $data;
+        $select = $adapter->select()->from(
+            $this->getMainTable()
+        )->where(
+            'website_id = :website_id'
+        )->order(
+            ['dest_country_id DESC', 'dest_region_id DESC', 'dest_zip DESC', 'condition_from_value DESC']
+        );
+        $zoneWhere =  "dest_country_id = :country_id" . $zipSearchString;
+        $bind = [
+            ':country_id' => $request->getDestCountryId()
+        ];
+        $select->where($zoneWhere);
+        $bind[':website_id'] = (int)$request->getWebsiteId();
+        $bind[':condition_name'] = $request->getConditionMRName();
+        //SHQ18-1978
+        $condition = $request->getData($request->getConditionMRName());
+        if ($condition == null || $condition == "") {
+            $condition = 0;
+        }
+        $bind[':condition_value'] = $condition;
+        $select->where('condition_name = :condition_name');
+        $select->where('condition_from_value < :condition_value');
+        $select->where('condition_to_value >= :condition_value');
+        $this->logger->debug('SQL Select: ', $select->getPart('where'));
+        $this->logger->debug('Bindings: ', $bind);
+        $results = $adapter->fetchAll($select, $bind);
+        if (!empty($results)) {
+            $this->logger->debug('SQL Results: ', $results);
+            $valEnts = [];
+            foreach ($results as $data) {
+                if($doRegex) {
+                    $curRegex = $data['dest_zip'];
+                    try {
+                        if(preg_match('/' . $curRegex . '/', $postcode)) {
+                            $valEnts[]=$data;
+                        }
+                    } catch (\Throwable $exception) {
+                        $valEnts[]=$data;
                     }
+                } else { // If we have marked as skipping Regex check, then just push the result
+                    $valEnts[]=$data;
                 }
-                break;
             }
+            $eco = null;
+            $express = null;
+            foreach ($valEnts as $shippingCharge) {
+                //$curServ = $this->ShippingCharges->ShippingServices->get($shippingCharge->shipping_service_id);
+                switch ($shippingCharge['shipping_method']){
+                    case 'Standard Shipping':
+                        if(empty($eco)) {
+                            $eco = $shippingCharge;
+                        }
+                        if($eco['price'] > $shippingCharge['price']) {
+                            $eco = $shippingCharge;
+                        }
+                        break;
+                    case 'Express Shipping':
+                        if(empty($express)) {
+                            $express = $shippingCharge;
+                        }
+                        if($express['price'] > $shippingCharge['price']) {
+                            $express = $shippingCharge;
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            }
+            $shippingData[]=$eco;
+            $shippingData[]=$express;
         }
-
         return $shippingData;
     }
 

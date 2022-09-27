@@ -203,14 +203,49 @@ class Matrixrate extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
     public function getRate(\Magento\Quote\Model\Quote\Address\RateRequest $request, $zipRangeSet = false)
     {
         $adapter = $this->getConnection();
+        //$this->logger->debug('Ship Request: ', print_r($request, true));
+        // Roll value - how we identifiy that a product is a roll, and so we need to add the roll surcharge
+        $extraCharges = 0;
+        $skuCharges = 0;
+        $rollID = 10556;
+        $rollCost = $this->coreConfig->getValue('carriers/matrixrate/roll_surcharge', 'default');
+        //$this->logger->debug('roll Cost: ' . $rollCost);
+        // beter check we do not need to deal with shipping surcharges
+        if ($request->getAllItems()) {
+            foreach ($request->getAllItems() as $item) {
+                $_resource = $item->getProduct()->getResource();
+                $formID = $_resource->getAttributeRawValue($item->getProduct()->getId(), 'form', $item->getProduct()->getStore());
+                //$this->logger->debug('Form ID: ' . $formID);
+                if ($formID == $rollID) {
+                    $extraCharges = $rollCost;
+                }
+                $shipPrem =  $_resource->getAttributeRawValue($item->getProduct()->getId(), 'shipping_premium', $item->getProduct()->getStore());
+                if($shipPrem) {
+                    $skuCharges = $skuCharges + $shipPrem;
+                }
+                //$this->logger->debug('Shipment SKU: '. $item->getProduct()->getSku());
+                //$_resource = $item->getProduct()->getResource();
+                //$optionValue = $_resource->getAttributeRawValue($item->getProduct()->getId(), 'shipping_premium', $item->getProduct()->getStore());
+                //$this->logger->debug('Shipment Prem: '. $optionValue); //$item->getProduct()->getData('shipping_premium'));
+            }
+        }
+        $extraCharges = $extraCharges + $skuCharges;
+        //$this->logger->debug('Extra Charges: '. $extraCharges); //$item->getProduct()->getData('shipping_premium'));
         $shippingData=[];
         $doRegex = false;
         $postcode = strtoupper(trim($request->getDestPostcode())); //SHQ18-1978
         if(!empty($postcode)) {
-            preg_match('/^[A-Z]+/',$postcode,$m);
-            $area = $m[0];
-            $zipSearchString = " AND dest_zip like '%$area%'";
-            $doRegex = true;
+            $zipSearchString = " AND dest_zip ='*'";
+            if($request->getDestCountryId() == 'GB') {
+                preg_match('/^[A-Z]+/',$postcode,$m);
+                if(isset($m[0]) && !empty($m[0])) {
+                    $area = $m[0];
+                    $zipSearchString = " AND dest_zip like '%$area%'";
+                    $doRegex = true;
+                } else {
+                    $zipSearchString = " AND dest_zip ='*'";
+                }
+            }
         } else {
             $zipSearchString = " AND dest_zip ='*'";
         }
@@ -230,8 +265,9 @@ class Matrixrate extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
         $bind[':condition_name'] = $request->getConditionMRName();
         //SHQ18-1978
         $condition = $request->getData($request->getConditionMRName());
+        $this->logger->debug('Req: ' . $condition);
         if ($condition == null || $condition == "") {
-            $condition = 0;
+            $condition = 1;
         }
         $bind[':condition_value'] = $condition;
         $select->where('condition_name = :condition_name');
@@ -239,6 +275,7 @@ class Matrixrate extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
         $select->where('condition_to_value >= :condition_value');
         $this->logger->debug('SQL Select: ', $select->getPart('where'));
         $this->logger->debug('Bindings: ', $bind);
+        //$this->logger->debug('SQL Query: ', $select);
         $results = $adapter->fetchAll($select, $bind);
         if (!empty($results)) {
             $this->logger->debug('SQL Results: ', $results);
@@ -282,6 +319,8 @@ class Matrixrate extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
                         break;
                 }
             }
+            $eco['price'] = $eco['price'] + $extraCharges;
+            $express['price'] = $express['price'] + $extraCharges;
             $shippingData[]=$eco;
             $shippingData[]=$express;
         }
@@ -654,3 +693,4 @@ class Matrixrate extends \Magento\Framework\Model\ResourceModel\Db\AbstractDb
         return $value;
     }
 }
+
